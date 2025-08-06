@@ -9,9 +9,9 @@ keywords:
   - yolo
   - computer-vision
   - ai
-home: https://github.com/gpillon/yolo-pose
+home: https://github.com/gpillon/museum
 sources:
-  - https://github.com/gpillon/yolo-pose
+  - https://github.com/gpillon/museum
 maintainers:
   - name: gpillon
     email: gpillon@example.com 
