@@ -13,7 +13,7 @@ backend:
   replicaCount: 1
   
   image:
-    repository: ghcr.io/gpillon/museum/yolo-pose-backend:latest
+    repository: ghcr.io/gpillon/museum/yolo-pose-backend
     tag: latest
     pullPolicy: IfNotPresent
   
@@ -82,7 +82,7 @@ frontend:
   replicaCount: 1
   
   image:
-    repository: ghcr.io/gpillon/museum/yolo-pose-frontend:latest
+    repository: ghcr.io/gpillon/museum/yolo-pose-frontend
     tag: latest
     pullPolicy: IfNotPresent
   
