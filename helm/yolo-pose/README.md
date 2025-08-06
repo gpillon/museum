@@ -15,7 +15,7 @@ This Helm chart deploys the YOLO Pose Detection application on Kubernetes.
 
 ```bash
 # Add the repository
-helm repo add yolo-pose https://gpillon.github.io/yolo-pose/
+helm repo add yolo-pose https://gpillon.github.io/museum/
 helm repo update
 
 # Install the chart

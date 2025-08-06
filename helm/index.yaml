@@ -9,6 +9,6 @@ entries:
       name: yolo-pose
       type: application
       urls:
-        - https://gpillon.github.io/yolo-pose/yolo-pose-0.1.0.tgz
+        - https://gpillon.github.io/museum/yolo-pose-0.1.0.tgz
       version: 0.1.0
 generated: "2024-01-01T00:00:00.000000000Z" 
