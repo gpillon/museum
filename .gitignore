@@ -125,7 +125,7 @@ jspm_packages/
 .vscode-test
 
 # YOLO model files (large files)
-*.pt
+# *.pt
 *.onnx
 *.weights
 

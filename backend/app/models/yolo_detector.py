@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class YOLODetector:
-    def __init__(self, model_path="../yolo11n-pose.pt"):
+    def __init__(self, model_path="models/yolo11s-pose.pt"):
         """
         Initialize YOLO pose detector
         Args:
