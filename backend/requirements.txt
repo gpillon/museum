@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+websockets
+python-multipart
+opencv-python
+ultralytics
+numpy
+pillow
+python-socketio
+pydantic
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
