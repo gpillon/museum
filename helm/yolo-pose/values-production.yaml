@@ -1,0 +1,139 @@
+# Production values for yolo-pose
+# This file contains production-optimized settings
+
+# Global configuration
+global:
+  imageRegistry: "ghcr.io"
+  imagePullSecrets:
+    - name: ghcr-secret
+
+# Backend configuration for production
+backend:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/gpillon/museum/yolo-pose-backend
+    tag: latest
+    pullPolicy: Always
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  # Production backend configuration
+  config:
+    modelPath: "/app/models/yolo11n-pose.pt"
+    logLevel: "INFO"
+    corsOrigins: ["https://your-domain.com"]
+  
+  # Use persistent storage for models in production
+  volumes:
+    models:
+      enabled: true
+      type: persistentVolumeClaim
+      size: 5Gi
+  
+  # Production environment variables
+  env:
+    PYTHONPATH: "/app"
+    LOG_LEVEL: "INFO"
+    ENVIRONMENT: "production"
+
+# Frontend configuration for production
+frontend:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: ghcr.io/gpillon/museum/yolo-pose-frontend
+    tag: latest
+    pullPolicy: Always
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  service:
+    type: ClusterIP
+    port: 80
+  
+  # Production ingress configuration
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: your-domain.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: yolo-pose-tls
+        hosts:
+          - your-domain.com
+  
+  # Production environment variables
+  env:
+    REACT_APP_BACKEND_URL: "https://api.your-domain.com"
+    REACT_APP_WEBSOCKET_URL: "wss://api.your-domain.com/ws"
+    REACT_APP_ENVIRONMENT: "production"
+
+# Database configuration for production
+database:
+  enabled: true
+  type: postgresql
+  host: "postgresql-service"
+  port: 5432
+  name: "yolo_pose_prod"
+  username: "yolo_pose_user"
+  password: "your-secure-password"
+
+# Redis configuration for production caching
+redis:
+  enabled: true
+  host: "redis-service"
+  port: 6379
+  password: "your-redis-password"
+
+# Monitoring and logging for production
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  
+  grafana:
+    enabled: true
+    dashboard:
+      enabled: true
+
+# Network policies for production security
+networkPolicy:
+  enabled: true
+  ingressRules:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+  egressRules:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system 

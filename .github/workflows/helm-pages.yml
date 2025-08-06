@@ -1,0 +1,80 @@
+name: Helm Chart Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'helm/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'helm/**'
+
+jobs:
+  lint-helm:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: v3.12.0
+    
+    - name: Lint Helm chart
+      run: |
+        cd helm/yolo-pose
+        helm lint .
+        helm template test . > /dev/null
+
+  build-and-deploy:
+    needs: lint-helm
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: v3.12.0
+    
+    - name: Package Helm chart
+      run: |
+        cd helm/yolo-pose
+        helm package .
+        mv yolo-pose-*.tgz ../
+    
+    - name: Create Helm repository index
+      run: |
+        cd helm
+        helm repo index . --url https://gpillon.github.io/yolo-pose/
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./helm
+        destination_dir: .
+        force_orphan: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: 'Update Helm chart repository'
+    
+    - name: Create repository file
+      run: |
+        cat > helm-repository.yaml << EOF
+        apiVersion: v1
+        repositories:
+        - name: yolo-pose
+          url: https://gpillon.github.io/yolo-pose/
+        EOF
+    
+    - name: Upload repository file
+      uses: actions/upload-artifact@v3
+      with:
+        name: helm-repository
+        path: helm-repository.yaml 

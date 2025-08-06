@@ -1,0 +1,17 @@
+apiVersion: v2
+name: yolo-pose
+description: A Helm chart for YOLO Pose Detection Application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - pose-detection
+  - yolo
+  - computer-vision
+  - ai
+home: https://github.com/gpillon/yolo-pose
+sources:
+  - https://github.com/gpillon/yolo-pose
+maintainers:
+  - name: gpillon
+    email: gpillon@example.com 

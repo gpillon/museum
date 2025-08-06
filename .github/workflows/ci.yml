@@ -3,12 +3,24 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/ci.yml'
 
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' || 
+      contains(github.event.pull_request.files.*.path, 'backend/') ||
+      contains(github.event.pull_request.files.*.path, '.github/workflows/ci.yml')
     
     steps:
     - uses: actions/checkout@v3
@@ -31,6 +43,10 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' || 
+      contains(github.event.pull_request.files.*.path, 'frontend/') ||
+      contains(github.event.pull_request.files.*.path, '.github/workflows/ci.yml')
     
     steps:
     - uses: actions/checkout@v3
@@ -58,7 +74,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (contains(github.event.head_commit.modified, 'backend/') || 
+       contains(github.event.head_commit.modified, '.github/workflows/ci.yml') ||
+       github.event_name == 'push')
     
     steps:
     - uses: actions/checkout@v3
@@ -89,7 +109,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (contains(github.event.head_commit.modified, 'backend/') || 
+       contains(github.event.head_commit.modified, '.github/workflows/ci.yml') ||
+       github.event_name == 'push')
     
     steps:
     - uses: actions/checkout@v3
@@ -120,7 +144,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (contains(github.event.head_commit.modified, 'frontend/') || 
+       contains(github.event.head_commit.modified, '.github/workflows/ci.yml') ||
+       github.event_name == 'push')
     
     steps:
     - uses: actions/checkout@v3
@@ -151,7 +179,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (contains(github.event.head_commit.modified, 'frontend/') || 
+       contains(github.event.head_commit.modified, '.github/workflows/ci.yml') ||
+       github.event_name == 'push')
     
     steps:
     - uses: actions/checkout@v3

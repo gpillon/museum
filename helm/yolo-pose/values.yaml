@@ -1,0 +1,172 @@
+# Default values for yolo-pose
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/gpillon/museum/yolo-pose-backend:latest
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+  
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  podAnnotations: {}
+  podSecurityContext: {}
+  
+  securityContext: {}
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: backend.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # Backend specific configuration
+  config:
+    modelPath: "/app/models/yolo11s-pose.pt"
+    logLevel: "WARN"
+    corsOrigins: ["*"]
+  
+  # Volume mounts for models
+  volumes:
+    models:
+      enabled: false
+      type: emptyDir
+      size: 1Gi
+  
+  # Environment variables
+  env:
+    PYTHONPATH: "/app"
+    LOG_LEVEL: "WARN"
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/gpillon/museum/yolo-pose-frontend:latest
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+  
+  podAnnotations: {}
+  podSecurityContext: {}
+  
+  securityContext: {}
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    hosts:
+      - host: yolo-pose.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # Frontend specific configuration
+  config:
+    backendUrl: "http://backend:8000"
+    websocketUrl: "ws://backend:8000/ws"
+  
+  # Environment variables
+  env:
+    REACT_APP_BACKEND_URL: "http://backend:8000"
+    REACT_APP_WEBSOCKET_URL: "ws://backend:8000/ws"
+
+# Database configuration (if needed in the future)
+database:
+  enabled: false
+  type: postgresql
+  host: ""
+  port: 5432
+  name: "yolo_pose"
+  username: "yolo_pose"
+  password: ""
+
+# Redis configuration (if needed for caching)
+redis:
+  enabled: false
+  host: ""
+  port: 6379
+  password: ""
+
+# Monitoring and logging
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+  
+  grafana:
+    enabled: false
+    dashboard:
+      enabled: false
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingressRules: []
+  egressRules: [] 
