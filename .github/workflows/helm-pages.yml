@@ -32,6 +32,10 @@ jobs:
   build-and-deploy:
     needs: lint-helm
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     if: github.ref == 'refs/heads/main'
     
     steps:
@@ -55,16 +59,17 @@ jobs:
         cd helm
         helm repo index . --url https://gpillon.github.io/yolo-pose/
     
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./helm
-        destination_dir: .
-        force_orphan: true
-        user_name: 'github-actions[bot]'
-        user_email: 'github-actions[bot]@users.noreply.github.com'
-        commit_message: 'Update Helm chart repository'
+        path: ./helm
+    
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
     
     - name: Create repository file
       run: |
