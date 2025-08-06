@@ -3,6 +3,7 @@ name: Helm Chart Pages
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
     paths:
       - 'helm/**'
       - '.github/workflows/helm-pages.yml'
@@ -11,10 +12,21 @@ on:
     paths:
       - 'helm/**'
       - '.github/workflows/helm-pages.yml'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild and redeploy Helm chart'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   lint-helm:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request'
     steps:
     - uses: actions/checkout@v4
     
@@ -36,7 +48,9 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true')
     
     steps:
     - uses: actions/checkout@v4
@@ -48,11 +62,34 @@ jobs:
       with:
         version: v3.12.0
     
+    - name: Determine chart version
+      id: chart_version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=0.1.0" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Update Chart.yaml version
+      if: github.ref_type == 'tag'
+      run: |
+        cd helm/yolo-pose
+        sed -i "s/version: .*/version: ${{ steps.chart_version.outputs.version }}/" Chart.yaml
+        sed -i "s/appVersion: .*/appVersion: \"${{ steps.chart_version.outputs.version }}\"/" Chart.yaml
+    
     - name: Package Helm chart
       run: |
         cd helm/yolo-pose
         helm package .
         mv yolo-pose-*.tgz ../
+    
+    - name: Update image tags in values
+      if: github.ref_type == 'tag'
+      run: |
+        cd helm/yolo-pose
+        sed -i "s/tag: latest/tag: ${{ steps.chart_version.outputs.version }}/" values.yaml
+        sed -i "s/tag: latest/tag: ${{ steps.chart_version.outputs.version }}/" values-production.yaml
     
     - name: Create Helm repository index
       run: |
