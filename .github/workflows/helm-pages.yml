@@ -5,10 +5,12 @@ on:
     branches: [ main ]
     paths:
       - 'helm/**'
+      - '.github/workflows/helm-pages.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'helm/**'
+      - '.github/workflows/helm-pages.yml'
 
 jobs:
   lint-helm:
