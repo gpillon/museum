@@ -57,7 +57,7 @@ jobs:
     - name: Create Helm repository index
       run: |
         cd helm
-        helm repo index . --url https://gpillon.github.io/yolo-pose/
+        helm repo index . --url https://gpillon.github.io/museum/
     
     - name: Setup Pages
       uses: actions/configure-pages@v4
@@ -77,7 +77,7 @@ jobs:
         apiVersion: v1
         repositories:
         - name: yolo-pose
-          url: https://gpillon.github.io/yolo-pose/
+          url: https://gpillon.github.io/museum/
         EOF
     
     - name: Upload repository file
