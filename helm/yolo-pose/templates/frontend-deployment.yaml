@@ -58,6 +58,8 @@ spec:
               value: "http://{{ include "backend.name" . }}:{{ .Values.backend.service.port }}"
             - name: REACT_APP_WS_BASE_URL
               value: "ws://{{ include "backend.name" . }}:{{ .Values.backend.service.port }}/ws"
+            - name: BACKEND_SERVICE_NAME
+              value: {{ include "backend.name" . }}
       {{- with .Values.frontend.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
