@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 
 # Copy YOLO model files
-COPY ../yolo11n-pose.pt ./yolo11n-pose.pt
+# COPY ../yolo11n-pose.pt ./yolo11n-pose.pt
 
 # Expose port
 EXPOSE 8000
