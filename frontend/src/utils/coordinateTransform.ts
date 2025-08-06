@@ -124,13 +124,6 @@ export class CoordinateTransformer {
   }
 
   /**
-   * Get appropriate Y height for different body parts (DEPRECATED, now handled in projection)
-   */
-  private getKeypointHeight(keypointName: string): number {
-    return 0; // This logic is no longer needed
-  }
-
-  /**
    * Create skeleton connections between keypoints
    */
   createSkeletonConnections(keypoints: MuseumPoint[]): Array<{start: MuseumPoint, end: MuseumPoint}> {

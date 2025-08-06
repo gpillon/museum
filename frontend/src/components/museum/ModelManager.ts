@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HumanoidSkeleton } from './HumanoidSkeleton';
 import { CameraPoint, CoordinateTransformer, createCoordinateTransformer } from '../../utils/coordinateTransform';
 
@@ -16,14 +15,10 @@ export interface PoseDetection {
 export class ModelManager {
   private models: { [id: number]: THREE.Group } = {};
   private scene: THREE.Scene;
-  private gltfLoader: GLTFLoader;
-  private cachedGLBModel: THREE.Group | null = null;
-  private animations: THREE.AnimationClip[] = [];
   private coordinateTransformer: CoordinateTransformer;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
-    this.gltfLoader = new GLTFLoader();
     this.coordinateTransformer = createCoordinateTransformer();
   }
 
@@ -110,21 +105,5 @@ export class ModelManager {
         modelGroup.position.y -= lowestPoint;
       }
     }, 0);
-  }
-
-  private loadGLBModel(modelPath: string): Promise<any> {
-    // This is no longer used but kept for potential future use
-    return new Promise((resolve, reject) => {
-      this.gltfLoader.load(
-        modelPath,
-        (gltf) => {
-          resolve(gltf);
-        },
-        undefined,
-        (error) => {
-          reject(error);
-        }
-      );
-    });
   }
 } 

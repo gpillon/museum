@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PoseDetector from './components/PoseDetector';
 import StatusBar from './components/StatusBar';
 

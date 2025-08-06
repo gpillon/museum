@@ -55,7 +55,6 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
       };
 
       ws.onmessage = (event) => {
-        const startTime = performance.now();
         
         // Handle different message types
         try {
