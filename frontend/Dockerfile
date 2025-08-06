@@ -24,6 +24,22 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
 
+# Create necessary directories and set permissions for nginx user
+RUN mkdir -p /var/cache/nginx/client_temp \
+    /var/cache/nginx/fastcgi_temp \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/scgi_temp \
+    /var/cache/nginx/uwsgi_temp \
+    /var/log/nginx \
+    /var/run \
+    /etc/nginx/conf.d && \
+    chown -R nginx:0 /var/cache/nginx \
+    /var/log/nginx \
+    /var/run \
+    /etc/nginx/conf.d \
+    /usr/share/nginx/html \
+    /etc/nginx/templates
+
 # Expose port
 EXPOSE 8080
 
