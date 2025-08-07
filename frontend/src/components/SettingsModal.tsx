@@ -42,15 +42,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onReset 
 }) => {
   const [settings, setSettings] = useState<ModelSettings>({
-    model: 'yolov8n',
+    model: 'yolo11n-pose.pt',
     confidence: 0.75,
     iou_threshold: 0.45,
-    max_det: 300,
+    max_det: 5,
     device: 'cpu',
     verbose: false,
     agnostic_nms: false,
     half: false,
-    dnn: false
+    dnn: true
   });
 
   const [availableSettings, setAvailableSettings] = useState<AvailableSettings>({});

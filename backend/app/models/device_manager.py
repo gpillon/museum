@@ -343,19 +343,18 @@ class DeviceManager:
         Get optimal settings based on available devices and models
         """
         recommended_device = self.get_recommended_device()
-        recommended_model = self.get_recommended_model()
         device_info = self.get_device_info(recommended_device)
         
         settings = {
-            'model': recommended_model,
+            'model': 'yolo11n-pose.pt',
             'device': recommended_device,
-            'confidence': 0.25,
+            'confidence': 0.75,
             'iou_threshold': 0.45,
-            'max_det': 300,
+            'max_det': 5,
             'verbose': False,
             'agnostic_nms': False,
             'half': device_info.get('half_precision', False) if device_info else False,
-            'dnn': False
+            'dnn': True
         }
         
         return settings 

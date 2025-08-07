@@ -11,9 +11,24 @@ from app.api.routes import router as api_router
 from app.websocket.manager import ConnectionManager
 from app.models.yolo_detector import YOLODetector
 
-# Configure logging
+# Custom logging filter to hide health endpoint logs
+class HealthEndpointFilter(logging.Filter):
+    def filter(self, record):
+        # Hide INFO logs that contain health endpoint requests
+        if record.levelno == logging.INFO:
+            if hasattr(record, 'getMessage'):
+                message = record.getMessage()
+                if 'GET /health HTTP/1.1' in message:
+                    return False
+        return True
+
+# Configure logging with custom filter
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Add filter to uvicorn access logger to hide health endpoint logs
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.addFilter(HealthEndpointFilter())
 
 # Create FastAPI app
 app = FastAPI(

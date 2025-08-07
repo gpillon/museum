@@ -88,7 +88,7 @@ class YOLODetector:
             'model': {
                 'type': 'string',
                 'options': available_models,
-                'default': self.device_manager.get_recommended_model(),
+                'default': 'yolo11n-pose.pt',
                 'description': 'YOLO model to use for pose detection',
                 'info': model_info
             },
@@ -110,7 +110,7 @@ class YOLODetector:
                 'type': 'int',
                 'min': 1,
                 'max': 1000,
-                'default': 300,
+                'default': 5,
                 'description': 'Maximum number of detections'
             },
             'device': {
@@ -138,7 +138,7 @@ class YOLODetector:
             },
             'dnn': {
                 'type': 'boolean',
-                'default': False,
+                'default': True,
                 'description': 'Use OpenCV DNN for ONNX inference'
             }
         }
