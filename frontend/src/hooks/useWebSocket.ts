@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrayBufferUtils, METADATA_SIZE } from '../utils/performanceUtils';
+import { ArrayBufferUtils } from '../utils/performanceUtils';
 
 interface UseWebSocketReturn {
   isConnected: boolean;

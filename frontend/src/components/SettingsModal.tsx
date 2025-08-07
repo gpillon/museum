@@ -33,15 +33,13 @@ interface SettingsModalProps {
   onClose: () => void;
   onSave: (settings: ModelSettings) => Promise<any>;
   onReset?: () => Promise<any>;
-  currentSettings?: ModelSettings;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, 
   onClose, 
   onSave, 
-  onReset,
-  currentSettings 
+  onReset 
 }) => {
   const [settings, setSettings] = useState<ModelSettings>({
     model: 'yolov8n',

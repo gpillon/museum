@@ -33,6 +33,47 @@ on:
         type: boolean
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend-changed: ${{ steps.changes.outputs.backend }}
+      frontend-changed: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check for changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "backend=true" >> $GITHUB_OUTPUT
+            echo "frontend=true" >> $GITHUB_OUTPUT
+          else
+            # Get list of changed files
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              git fetch origin ${{ github.event.pull_request.base.sha }}
+              CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.sha }}...HEAD)
+            else
+              # For push events, compare with previous commit
+              CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            fi
+            
+            # Check if backend files changed
+            if echo "$CHANGED_FILES" | grep -q "^backend/"; then
+              echo "backend=true" >> $GITHUB_OUTPUT
+            else
+              echo "backend=false" >> $GITHUB_OUTPUT
+            fi
+            
+            # Check if frontend files changed
+            if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
+              echo "frontend=true" >> $GITHUB_OUTPUT
+            else
+              echo "frontend=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   test-backend:
     runs-on: ubuntu-latest
     if: |
@@ -89,18 +130,16 @@ jobs:
     #     npm test -- --watchAll=false
 
   build-backend:
-    needs: [test-backend, test-frontend]
+    needs: [check-changes, test-backend, test-frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 
-      (github.event_name == 'workflow_dispatch' ||
-       contains(github.event.head_commit.modified, 'backend/') || 
-       contains(github.event.head_commit.modified, '.github/workflows/ci.yml') ||
-       github.event_name == 'push') &&
-      (github.event_name == 'workflow_dispatch' || github.event.inputs.build_backend == 'true' || github.event.inputs.force_build == 'true')
+      (needs.check-changes.outputs.backend-changed == 'true' || 
+       github.event_name == 'workflow_dispatch' ||
+       github.event.inputs.force_build == 'true')
     
     steps:
     - uses: actions/checkout@v4
@@ -139,18 +178,16 @@ jobs:
         cache-to: type=gha,mode=max
 
   build-frontend:
-    needs: [test-backend, test-frontend]
+    needs: [check-changes, test-backend, test-frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 
-      (github.event_name == 'workflow_dispatch' ||
-       contains(github.event.head_commit.modified, 'frontend/') || 
-       contains(github.event.head_commit.modified, '.github/workflows/ci.yml') ||
-       github.event_name == 'push') &&
-      (github.event_name == 'workflow_dispatch' || github.event.inputs.build_frontend == 'true' || github.event.inputs.force_build == 'true')
+      (needs.check-changes.outputs.frontend-changed == 'true' || 
+       github.event_name == 'workflow_dispatch' ||
+       github.event.inputs.force_build == 'true')
     
     steps:
     - uses: actions/checkout@v4
