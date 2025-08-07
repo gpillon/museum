@@ -36,7 +36,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     messageQueueSize,
     averageLatency,
     connectionStatus
-  } = useWebSocket('ws://localhost:3000/ws/detect');
+  } = useWebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}/ws/detect`);
 
   // Performance monitoring
   const frameCountRef = useRef(0);
