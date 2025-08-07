@@ -22,7 +22,10 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Copy nginx configuration template
+COPY frontend.conf.template /etc/nginx/templates/frontend.conf.template
 
 # Create necessary directories and set permissions for nginx user
 RUN mkdir -p /var/cache/nginx/client_temp \
