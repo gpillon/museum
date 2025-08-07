@@ -43,6 +43,8 @@ RUN mkdir -p /var/cache/nginx/client_temp \
     /usr/share/nginx/html \
     /etc/nginx/templates
 
+RUN rm /etc/nginx/conf.d/default.conf
+
 # Expose port
 EXPOSE 8080
 
