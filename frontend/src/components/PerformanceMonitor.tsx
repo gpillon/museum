@@ -7,6 +7,7 @@ interface PerformanceMonitorProps {
   droppedFrames: number;
   frameRate: number;
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+  queueDroppedFrames?: number;
 }
 
 const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
@@ -15,7 +16,8 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
   queueSize,
   droppedFrames,
   frameRate,
-  connectionStatus
+  connectionStatus,
+  queueDroppedFrames = 0
 }) => {
   const getLatencyColor = (latency: number) => {
     if (latency < 50) return 'text-green-600';
@@ -40,7 +42,7 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
     <div className="bg-gray-50 rounded-lg p-4 mb-4">
       <h3 className="text-lg font-semibold text-gray-800 mb-3">Performance Monitor</h3>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="text-center">
           <div className="text-2xl font-bold text-blue-600">{fps.toFixed(1)}</div>
           <div className="text-xs text-gray-600">FPS (Actual)</div>
@@ -74,6 +76,14 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
           <div className="text-xs text-gray-600">Dropped Frames</div>
           <div className="text-xs text-gray-500">
             {droppedFrames === 0 ? 'No drops' : 'Performance optimization'}
+          </div>
+        </div>
+        
+        <div className="text-center">
+          <div className="text-2xl font-bold text-red-600">{queueDroppedFrames}</div>
+          <div className="text-xs text-gray-600">Queue Dropped</div>
+          <div className="text-xs text-gray-500">
+            {queueDroppedFrames === 0 ? 'No queue drops' : 'Queue overflow'}
           </div>
         </div>
       </div>

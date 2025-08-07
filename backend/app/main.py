@@ -5,6 +5,7 @@ import logging
 import asyncio
 import json
 import time
+import uuid
 from collections import deque
 from app.api.routes import router as api_router
 from app.websocket.manager import ConnectionManager
@@ -43,6 +44,29 @@ performance_stats = {
     'processing_times': deque(maxlen=100),
     'last_log_time': time.time()
 }
+
+# Constants for ArrayBuffer metadata
+METADATA_SIZE = 24  # 8 bytes timestamp + 16 bytes UUID
+TIMESTAMP_OFFSET = 0
+UUID_OFFSET = 8
+
+def extract_metadata(buffer: bytes) -> tuple[int, str, bytes]:
+    """Extract timestamp, UUID, and original data from buffer with metadata"""
+    if len(buffer) < METADATA_SIZE:
+        raise ValueError("Buffer too small to contain metadata")
+    
+    # Extract timestamp (8 bytes, big-endian)
+    timestamp_bytes = buffer[TIMESTAMP_OFFSET:TIMESTAMP_OFFSET + 8]
+    timestamp = int.from_bytes(timestamp_bytes, byteorder='big')
+    
+    # Extract UUID (16 bytes)
+    uuid_bytes = buffer[UUID_OFFSET:UUID_OFFSET + 16]
+    uuid_str = str(uuid.UUID(bytes=uuid_bytes))
+    
+    # Extract original data
+    original_data = buffer[METADATA_SIZE:]
+    
+    return timestamp, uuid_str, original_data
 
 def get_detector():
     global detector
@@ -98,13 +122,16 @@ async def websocket_endpoint(websocket: WebSocket):
             
             # Handle different message types
             if "bytes" in data:
-                # Process image data
+                # Process image data with metadata
                 image_data = data["bytes"]
                 start_time = time.time()
             
                 try:
-                    # Process with YOLO model
-                    results = detector_instance.detect_pose(image_data)
+                    # Extract metadata from buffer
+                    frame_timestamp, frame_uuid, original_image_data = extract_metadata(image_data)
+                    
+                    # Process with YOLO model using original data
+                    results = detector_instance.detect_pose(original_image_data)
                     
                     # Track performance
                     processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
@@ -115,19 +142,35 @@ async def websocket_endpoint(websocket: WebSocket):
                     # Log performance stats every minute
                     log_performance_stats()
                     
-                    # Add timestamp for latency calculation (use milliseconds)
-                    results["timestamp"] = int(asyncio.get_event_loop().time() * 1000)
+                    # Add metadata to response for latency tracking
+                    results["timestamp"] = frame_timestamp  # Use original frame timestamp
+                    results["frame_uuid"] = frame_uuid  # Include frame UUID for tracking
+                    results["processing_time"] = processing_time  # Add processing time for monitoring
+                    results["response_timestamp"] = int(asyncio.get_event_loop().time() * 1000)  # Current timestamp
             
                     # Send results back to client
                     await websocket.send_json(results)
                     
                 except Exception as e:
                     logger.error(f"Error processing frame: {e}")
-                    await websocket.send_json({
-                        "success": False,
-                        "error": str(e),
-                        "timestamp": int(asyncio.get_event_loop().time() * 1000)
-                    })
+                    # Try to extract metadata for error response
+                    try:
+                        frame_timestamp, frame_uuid, _ = extract_metadata(image_data)
+                        error_response = {
+                            "success": False,
+                            "error": str(e),
+                            "timestamp": frame_timestamp,
+                            "frame_uuid": frame_uuid,
+                            "response_timestamp": int(asyncio.get_event_loop().time() * 1000)
+                        }
+                    except:
+                        error_response = {
+                            "success": False,
+                            "error": str(e),
+                            "timestamp": int(asyncio.get_event_loop().time() * 1000)
+                        }
+                    
+                    await websocket.send_json(error_response)
                     
             elif "text" in data:
                 # Handle text messages (like heartbeats)

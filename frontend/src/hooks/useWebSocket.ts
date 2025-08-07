@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrayBufferUtils, METADATA_SIZE } from '../utils/performanceUtils';
 
 interface UseWebSocketReturn {
   isConnected: boolean;
@@ -73,9 +74,16 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
           
           setLastMessage(event.data);
           
-          // Calculate latency
-          if (data.timestamp) {
-            const latency = Date.now() - data.timestamp;
+          // Calculate latency from response timestamps
+          if (data.timestamp && data.response_timestamp) {
+            // Calculate end-to-end latency (frame sent to response received)
+            const endToEndLatency = Date.now() - data.timestamp;
+            
+            // Calculate server processing time
+            const serverProcessingTime = data.response_timestamp - data.timestamp;
+            
+            // Use the more accurate end-to-end latency
+            const latency = endToEndLatency;
             
             // Only add reasonable latency values
             if (latency > 0 && latency < 10000) {
@@ -89,10 +97,13 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
               const avgLatency = latencyHistory.current.reduce((a, b) => a + b, 0) / latencyHistory.current.length;
               setAverageLatency(avgLatency);
             }
+            
+            // Log detailed latency info for debugging
+            console.debug(`Frame ${data.frame_uuid}: E2E=${endToEndLatency}ms, Server=${serverProcessingTime}ms, Processing=${data.processing_time}ms`);
           }
         } catch (e) {
           // Handle non-JSON messages (like binary data)
-        setLastMessage(event.data);
+          setLastMessage(event.data);
         }
       };
 
@@ -143,15 +154,24 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
 
   const sendMessage = useCallback((data: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      // Add timestamp for latency calculation
-      const messageWithTimestamp = {
-        ...data,
-        timestamp: Date.now()
-      };
-      
       if (data instanceof ArrayBuffer) {
-        wsRef.current.send(data);
+        // Check queue size before sending ArrayBuffer (images)
+        if (messageQueue.current.length > 2) {
+          console.warn('Queue too large, dropping image frame');
+          return; // Drop this frame if queue is too large
+        }
+        
+        // Add metadata to ArrayBuffer for latency tracking
+        const timestamp = Date.now();
+        const uuid = ArrayBufferUtils.generateUuid();
+        const bufferWithMetadata = ArrayBufferUtils.addMetadata(data, timestamp, uuid);
+        wsRef.current.send(bufferWithMetadata);
       } else {
+        // For JSON messages, add timestamp for latency calculation
+        const messageWithTimestamp = {
+          ...data,
+          timestamp: Date.now()
+        };
         wsRef.current.send(JSON.stringify(messageWithTimestamp));
       }
     } else {
@@ -165,7 +185,7 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
         console.warn('Message queue limit reached, dropping oldest message');
       }
     }
-  }, []);
+  }, [messageQueueSize]);
 
   // Process queued messages when connected
   useEffect(() => {

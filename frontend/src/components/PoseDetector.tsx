@@ -4,7 +4,7 @@ import PoseCanvas from './PoseCanvas';
 import PerformanceMonitor from './PerformanceMonitor';
 import SettingsModal from './SettingsModal';
 import MuseumScene from './MuseumScene';
-import { FrameRateOptimizer, LatencyMonitor } from '../utils/performanceUtils';
+import { FrameRateOptimizer, LatencyMonitor, ArrayBufferUtils } from '../utils/performanceUtils';
 
 interface PoseDetectorProps {
   onConnectionChange: (connected: boolean) => void;
@@ -25,7 +25,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     fps: 0,
     latency: 0,
     droppedFrames: 0,
-    queueSize: 0
+    queueSize: 0,
+    queueDroppedFrames: 0
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -41,9 +42,20 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   // Performance monitoring
   const frameCountRef = useRef(0);
   const droppedFramesRef = useRef(0);
+  const queueDroppedFramesRef = useRef(0);
   const lastFrameSentRef = useRef(0);
   const frameRateOptimizerRef = useRef(new FrameRateOptimizer(frameRate));
   const latencyMonitorRef = useRef(new LatencyMonitor());
+
+  // Test metadata handling on component mount
+  useEffect(() => {
+    const testResult = ArrayBufferUtils.testMetadataHandling();
+    if (testResult) {
+      console.log('✅ ArrayBuffer metadata handling test passed');
+    } else {
+      console.error('❌ ArrayBuffer metadata handling test failed');
+    }
+  }, []);
 
   // Update parent component with connection status
   useEffect(() => {
@@ -69,12 +81,21 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   useEffect(() => {
     const updateFrameRate = () => {
       const currentFps = frameRateOptimizerRef.current.getCurrentFps();
-      setPerformanceStats(prev => ({ ...prev, fps: currentFps }));
+      const droppedFrames = frameRateOptimizerRef.current.getDroppedFramesCount();
+      
+      // Debug log for FPS calculation
+      const fpsDebugInfo = frameRateOptimizerRef.current.getFpsDebugInfo();
+      console.debug(`FPS Debug: currentFps=${currentFps}, droppedFrames=${droppedFrames}, queueSize=${messageQueueSize}, debugInfo=`, fpsDebugInfo);
+      
+      // Update FPS even if it's 0 (to show current state)
+      setPerformanceStats(prev => ({ 
+        ...prev, 
+        fps: currentFps,
+        droppedFrames: droppedFrames
+      }));
       
       // Update latency monitor
       latencyMonitorRef.current.addLatency(averageLatency);
-      
-
       
       // Only adjust frame rate if there's a significant performance issue
       if (currentFps < 5 || averageLatency > 500) {
@@ -83,9 +104,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       }
     };
 
-    const interval = setInterval(updateFrameRate, 1000); // Check every second
+    // Update immediately and then every second
+    updateFrameRate();
+    const interval = setInterval(updateFrameRate, 1000);
     return () => clearInterval(interval);
-  }, [averageLatency, frameRate]);
+  }, [averageLatency, frameRate, messageQueueSize]);
 
   // Update performance stats
   useEffect(() => {
@@ -114,7 +137,17 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         setError(null);
         frameCountRef.current = 0;
         droppedFramesRef.current = 0;
+        queueDroppedFramesRef.current = 0;
         lastFrameSentRef.current = 0;
+        // Reset dropped frames counter when starting stream
+        frameRateOptimizerRef.current.resetDroppedFramesCount();
+        // Reset FPS stats
+        setPerformanceStats(prev => ({ 
+          ...prev, 
+          fps: 0,
+          droppedFrames: 0,
+          queueDroppedFrames: 0
+        }));
       }
     } catch (err) {
       setError('Failed to access webcam. Please check permissions.');
@@ -142,8 +175,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       if (ctx) {
         // Only drop frames if we're sending too fast (basic rate limiting)
         if (frameRateOptimizerRef.current.shouldDropFrame()) {
-          droppedFramesRef.current++;
-          setPerformanceStats(prev => ({ ...prev, droppedFrames: droppedFramesRef.current }));
           return; // Drop this frame
         }
         
@@ -161,6 +192,23 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         canvas.toBlob((blob) => {
           if (blob) {
             blob.arrayBuffer().then(buffer => {
+              // Generate UUID for this frame
+              const uuid = ArrayBufferUtils.generateUuid();
+              
+              // Check if we can send this frame (queue size check is in useWebSocket)
+              const currentQueueSize = messageQueueSize;
+              if (currentQueueSize > 2) {
+                // Frame will be dropped by useWebSocket, count it
+                queueDroppedFramesRef.current++;
+                setPerformanceStats(prev => ({ 
+                  ...prev, 
+                  queueDroppedFrames: queueDroppedFramesRef.current 
+                }));
+              } else {
+                // Frame will be sent, track it for FPS calculation
+                frameRateOptimizerRef.current.trackSentFrame(uuid);
+              }
+              
               sendMessage(buffer);
               frameCountRef.current++;
             }).catch(error => {
@@ -170,7 +218,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         }, 'image/jpeg', quality);
       }
     }
-  }, [isConnected, sendMessage, frameRate]);
+  }, [isConnected, sendMessage, frameRate, messageQueueSize]);
 
   // Handle settings save
   const handleSaveSettings = async (settings: any) => {
@@ -190,6 +238,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
 
       const result = await response.json();
       console.log('Settings saved successfully:', result);
+      return result;
     } catch (error) {
       console.error('Error saving settings:', error);
       throw error;
@@ -213,6 +262,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
 
       const result = await response.json();
       console.log('Settings reset successfully:', result);
+      return result;
     } catch (error) {
       console.error('Error resetting settings:', error);
       throw error;
@@ -273,6 +323,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           droppedFrames={performanceStats.droppedFrames}
           frameRate={frameRate}
           connectionStatus={connectionStatus}
+          queueDroppedFrames={performanceStats.queueDroppedFrames}
         />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -333,6 +384,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           <p>Latency: {performanceStats.latency.toFixed(0)}ms</p>
           <p>Queue Size: {performanceStats.queueSize} messages</p>
           <p>Dropped Frames: {performanceStats.droppedFrames}</p>
+          <p>Queue Dropped Frames: {performanceStats.queueDroppedFrames}</p>
         </div>
       </div>
 

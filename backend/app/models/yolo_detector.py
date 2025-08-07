@@ -5,27 +5,30 @@ import base64
 import io
 from PIL import Image
 import logging
+from .device_manager import DeviceManager
+import os
 
 logger = logging.getLogger(__name__)
 
 class YOLODetector:
-    def __init__(self, model_path="models/yolo11s-pose.pt"):
+    def __init__(self, model_path=None):
         """
         Initialize YOLO pose detector
         Args:
-            model_path: Path to the YOLO pose model
+            model_path: Path to the YOLO pose model (optional, will use recommended if not provided)
         """
-        self.model_path = model_path
-        self.settings = {
-            'confidence': 0.75,
-            'iou_threshold': 0.45,
-            'max_det': 300,
-            'device': 'cpu',
-            'verbose': False,
-            'agnostic_nms': False,
-            'half': False,
-            'dnn': False
-        }
+        self.device_manager = DeviceManager()
+        
+        # Get optimal settings based on available devices and models
+        optimal_settings = self.device_manager.get_optimal_settings()
+        self.settings = optimal_settings
+        
+        # Use provided model path or recommended model
+        if model_path:
+            self.model_path = model_path
+        else:
+            self.model_path = f"models/{self.settings['model']}"
+        
         self._load_model()
     
     def _load_model(self):
@@ -33,7 +36,11 @@ class YOLODetector:
         Load the YOLO model with current settings
         """
         try:
-            # Load model with device setting
+            # Check if model file exists
+            if not os.path.exists(self.model_path):
+                logger.info(f"Model {self.model_path} not found, will be downloaded automatically")
+            
+            # Load model with device setting (YOLO will download automatically if needed)
             self.model = YOLO(self.model_path)
             
             # Move model to specified device if needed
@@ -62,6 +69,80 @@ class YOLODetector:
             logger.error(f"Failed to recreate YOLO model: {e}")
             raise
     
+    def get_current_settings(self) -> dict:
+        """
+        Get current model settings
+        """
+        return self.settings.copy()
+    
+    def get_available_settings(self) -> dict:
+        """
+        Get available settings and their constraints
+        """
+        available_devices = self.device_manager.get_available_devices()
+        available_models = self.device_manager.get_available_models()
+        device_capabilities = self.device_manager.get_device_capabilities()
+        model_info = self.device_manager.get_model_info()
+        
+        return {
+            'model': {
+                'type': 'string',
+                'options': available_models,
+                'default': self.device_manager.get_recommended_model(),
+                'description': 'YOLO model to use for pose detection',
+                'info': model_info
+            },
+            'confidence': {
+                'type': 'float',
+                'min': 0.0,
+                'max': 1.0,
+                'default': 0.75,
+                'description': 'Confidence threshold for detections'
+            },
+            'iou_threshold': {
+                'type': 'float',
+                'min': 0.0,
+                'max': 1.0,
+                'default': 0.45,
+                'description': 'IoU threshold for non-maximum suppression'
+            },
+            'max_det': {
+                'type': 'int',
+                'min': 1,
+                'max': 1000,
+                'default': 300,
+                'description': 'Maximum number of detections'
+            },
+            'device': {
+                'type': 'string',
+                'options': available_devices,
+                'default': self.device_manager.get_recommended_device(),
+                'description': 'Device to run inference on',
+                'capabilities': device_capabilities
+            },
+            'verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose output'
+            },
+            'agnostic_nms': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use agnostic non-maximum suppression'
+            },
+            'half': {
+                'type': 'boolean',
+                'default': self.device_manager.get_device_info(self.settings['device']).get('half_precision', False),
+                'description': 'Use half precision (FP16)',
+                'available': self.device_manager.get_device_info(self.settings['device']).get('half_precision', False)
+            },
+            'dnn': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use OpenCV DNN for ONNX inference'
+            }
+        }
+    
     def update_settings(self, new_settings: dict):
         """
         Update model settings
@@ -74,13 +155,26 @@ class YOLODetector:
         # Validate settings before applying
         validated_settings = {}
         
+        if 'model' in new_settings:
+            model = new_settings['model']
+            is_valid, error_msg = self.device_manager.validate_model_setting(model)
+            if is_valid:
+                if model != self.settings.get('model', ''):
+                    needs_recreation = True
+                    # Update model path
+                    self.model_path = f"models/{model}"
+                validated_settings['model'] = model
+            else:
+                logger.warning(f"Invalid model value: {model}, using default. {error_msg}")
+                validated_settings['model'] = self.device_manager.get_recommended_model()
+        
         if 'confidence' in new_settings:
             conf = new_settings['confidence']
             if 0 <= conf <= 1:
                 validated_settings['confidence'] = conf
             else:
                 logger.warning(f"Invalid confidence value: {conf}, using default")
-                validated_settings['confidence'] = 0.25
+                validated_settings['confidence'] = 0.75
         
         if 'iou_threshold' in new_settings:
             iou = new_settings['iou_threshold']
@@ -100,13 +194,14 @@ class YOLODetector:
         
         if 'device' in new_settings:
             device = new_settings['device']
-            if device in ['cpu', 'cuda', 'mps']:
+            is_valid, error_msg = self.device_manager.validate_device_setting(device)
+            if is_valid:
                 if device != self.settings.get('device', 'cpu'):
                     needs_recreation = True
                 validated_settings['device'] = device
             else:
-                logger.warning(f"Invalid device value: {device}, using default")
-                validated_settings['device'] = 'cpu'
+                logger.warning(f"Invalid device value: {device}, using default. {error_msg}")
+                validated_settings['device'] = self.device_manager.get_recommended_device()
         
         if 'verbose' in new_settings:
             validated_settings['verbose'] = bool(new_settings['verbose'])
@@ -116,9 +211,15 @@ class YOLODetector:
         
         if 'half' in new_settings:
             half = bool(new_settings['half'])
-            if half != self.settings.get('half', False):
-                needs_recreation = True
-            validated_settings['half'] = half
+            current_device = validated_settings.get('device', self.settings.get('device', 'cpu'))
+            device_info = self.device_manager.get_device_info(current_device)
+            
+            if device_info and device_info.get('half_precision', False):
+                if half != self.settings.get('half', False):
+                    needs_recreation = True
+                validated_settings['half'] = half
+            else:
+                logger.warning(f"Half precision not available for device {current_device}, ignoring setting")
         
         if 'dnn' in new_settings:
             validated_settings['dnn'] = bool(new_settings['dnn'])
@@ -127,9 +228,12 @@ class YOLODetector:
         self.settings.update(validated_settings)
         logger.info(f"Model settings updated: {validated_settings}")
         
-        # Recreate model if needed (device or half precision changed)
+        # Refresh model information after settings update
+        self.device_manager.refresh_model_info()
+        
+        # Recreate model if needed (model, device or half precision changed)
         if needs_recreation:
-            logger.info("Recreating model due to device or half precision change")
+            logger.info("Recreating model due to model, device or half precision change")
             self._recreate_model()
     
     def reset_settings(self):
@@ -137,25 +241,27 @@ class YOLODetector:
         Reset settings to default values
         """
         old_device = self.settings.get('device', 'cpu')
+        old_model = self.settings.get('model', '')
         old_half = self.settings.get('half', False)
         
-        self.settings = {
-            'confidence': 0.25,
-            'iou_threshold': 0.45,
-            'max_det': 300,
-            'device': 'cpu',
-            'verbose': False,
-            'agnostic_nms': False,
-            'half': False,
-            'dnn': False
-        }
+        # Get optimal settings based on current device and model availability
+        optimal_settings = self.device_manager.get_optimal_settings()
+        self.settings = optimal_settings
         
-        # Recreate model if device or half precision changed
-        if old_device != 'cpu' or old_half != False:
-            logger.info("Recreating model after reset due to device or half precision change")
+        # Update model path
+        self.model_path = f"models/{self.settings['model']}"
+        
+        # Refresh model information after reset
+        self.device_manager.refresh_model_info()
+        
+        # Recreate model if device, model or half precision changed
+        if (old_device != self.settings['device'] or 
+            old_model != self.settings['model'] or 
+            old_half != self.settings['half']):
+            logger.info("Recreating model after reset due to device, model or half precision change")
             self._recreate_model()
         
-        logger.info("Settings reset to default values")
+        logger.info("Settings reset to optimal values")
     
     def detect_pose(self, image_data):
         """

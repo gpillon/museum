@@ -51,6 +51,54 @@ async def get_status():
         }
     }
 
+@router.get("/settings")
+async def get_settings():
+    """
+    Get current YOLO model settings
+    """
+    try:
+        from app.main import get_detector
+        detector = get_detector()
+        
+        # Refresh model information before returning settings
+        detector.device_manager.refresh_model_info()
+        
+        current_settings = detector.get_current_settings()
+        logger.info(f"Retrieved current settings: {current_settings}")
+        
+        return {
+            "success": True,
+            "settings": current_settings
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/settings/available")
+async def get_available_settings():
+    """
+    Get available settings and their constraints
+    """
+    try:
+        from app.main import get_detector
+        detector = get_detector()
+        
+        # Refresh model information before returning available settings
+        detector.device_manager.refresh_model_info()
+        
+        available_settings = detector.get_available_settings()
+        logger.info("Retrieved available settings")
+        
+        return {
+            "success": True,
+            "available_settings": available_settings
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting available settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/settings")
 async def update_settings(settings: dict):
     """
@@ -65,10 +113,15 @@ async def update_settings(settings: dict):
         detector.update_settings(settings)
         logger.info(f"Model settings updated: {settings}")
         
+        # Get updated settings after the change
+        current_settings = detector.get_current_settings()
+        available_settings = detector.get_available_settings()
+        
         return {
             "success": True,
             "message": "Settings updated successfully",
-            "settings": settings
+            "settings": current_settings,
+            "available_settings": available_settings
         }
         
     except Exception as e:
@@ -89,10 +142,15 @@ async def reset_settings():
         detector.reset_settings()
         logger.info("Model settings reset to defaults")
         
+        # Get updated settings after reset
+        current_settings = detector.get_current_settings()
+        available_settings = detector.get_available_settings()
+        
         return {
             "success": True,
             "message": "Settings reset to defaults",
-            "settings": detector.settings
+            "settings": current_settings,
+            "available_settings": available_settings
         }
         
     except Exception as e:
@@ -117,4 +175,33 @@ async def test_detection(file: UploadFile = File(...)):
         
     except Exception as e:
         logger.error(f"Error in test detection: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) 
+
+@router.post("/settings/refresh-models")
+async def refresh_model_information():
+    """
+    Force refresh of model information
+    """
+    try:
+        from app.main import get_detector
+        detector = get_detector()
+        
+        # Force refresh model information
+        detector.device_manager.refresh_model_info()
+        
+        # Get updated information
+        available_settings = detector.get_available_settings()
+        current_settings = detector.get_current_settings()
+        
+        logger.info("Model information refreshed")
+        
+        return {
+            "success": True,
+            "message": "Model information refreshed successfully",
+            "settings": current_settings,
+            "available_settings": available_settings
+        }
+        
+    except Exception as e:
+        logger.error(f"Error refreshing model information: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 
